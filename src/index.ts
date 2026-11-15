@@ -1,22 +1,20 @@
 import type {
-  QuartzTransformerPlugin,
-  QuartzFilterPlugin,
-  QuartzEmitterPlugin,
+  QuartzTransformerPluginInstance,
+  QuartzFilterPluginInstance,
+  QuartzEmitterPluginInstance,
 } from "@quartz-community/types";
 import type { Root } from "mdast";
 import type { VFile } from "vfile";
 import fs from "node:fs/promises";
 import path from "node:path";
-
-export interface RemoveUnlinkedOptions extends Record<string, unknown> {
-  /** Die Namen der Ordner (relativ zum Vault-Root), die überwacht werden sollen (z.B. ["attachments", "private"]) */
-  folders: string[];
-}
+import type { RemoveUnlinkedOptions } from "./types";
 
 // Das Plugin implementiert alle drei Phasen (Transformer, Filter, Emitter) in einem einzigen State
-export const RemoveUnlinkedNotes: QuartzTransformerPlugin<RemoveUnlinkedOptions> &
-  QuartzFilterPlugin<RemoveUnlinkedOptions> &
-  QuartzEmitterPlugin<RemoveUnlinkedOptions> = (opts) => {
+export const RemoveUnlinkedNotes: (
+  opts?: RemoveUnlinkedOptions,
+) => QuartzTransformerPluginInstance & QuartzFilterPluginInstance & QuartzEmitterPluginInstance = (
+  opts,
+) => {
   const folders = opts?.folders ?? [];
 
   // Globaler State: Speichert alle im Vault gefundenen, ausgehenden Links
