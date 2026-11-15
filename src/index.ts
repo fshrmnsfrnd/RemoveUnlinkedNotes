@@ -9,7 +9,23 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { RemoveUnlinkedOptions } from "./types";
 
-// Das Plugin implementiert alle drei Phasen (Transformer, Filter, Emitter) in einem einzigen State
+let activeBuildId: string | undefined;
+const linkedSlugs = new Set<string>();
+
+const resetForBuild = (buildId: string): void => {
+  if (activeBuildId === buildId) return;
+  activeBuildId = buildId;
+  linkedSlugs.clear();
+};
+
+const normalizeSlug = (slug: string): string => {
+  const [withoutFragment] = decodeURIComponent(slug)
+    .replace(/^\/+/, "")
+    .replace(/^\.\//, "")
+    .split("#", 1);
+  return withoutFragment ?? "";
+};
+
 export const RemoveUnlinkedNotes: (
   opts?: RemoveUnlinkedOptions,
 ) => QuartzTransformerPluginInstance & QuartzFilterPluginInstance & QuartzEmitterPluginInstance = (
@@ -17,45 +33,38 @@ export const RemoveUnlinkedNotes: (
 ) => {
   const folders = opts?.folders ?? [];
 
-  // Globaler State: Speichert alle im Vault gefundenen, ausgehenden Links
-  const linkedSlugs = new Set<string>();
-
   return {
     name: "RemoveUnlinkedNotes",
 
-    // PHASE 1: TRANSFORMER
-    // Wird aufgerufen, NACHDEM Quartz die Links aus dem Markdown extrahiert hat.
-    // Wir sammeln alle diese Links global in unserem Set.
-    htmlPlugins() {
+    htmlPlugins(ctx) {
+      resetForBuild(ctx.buildId);
+
       return [
         () => {
           return (_tree: Root, file: VFile) => {
-            // Quartz legt alle gefundenen Links der aktuellen Datei in file.data.links ab
             const links = (file.data?.links ?? []) as string[];
             for (const link of links) {
-              linkedSlugs.add(link);
+              linkedSlugs.add(normalizeSlug(link));
             }
           };
         },
       ];
     },
 
-    // PHASE 2: FILTER
-    // Wendet sich NUR auf Markdown-Dateien (.md) an.
-    shouldPublish(_ctx, [_tree, file]) {
+    shouldPublish(ctx, [_tree, file]) {
+      resetForBuild(ctx.buildId);
+
       const slug = file.data?.slug as string | undefined;
       if (!slug) return true;
 
-      // Prüfen, ob die Datei in einem der Ziel-Ordner liegt
       const isInFolder = folders.some((folder) => slug.startsWith(folder + "/"));
       if (!isInFolder) return true;
 
-      // Wenn ja, darf sie nur in den Build, wenn eine andere Datei auf sie verlinkt
-      return linkedSlugs.has(slug);
+      return linkedSlugs.has(normalizeSlug(slug));
     },
 
-    // PHASE 3: EMITTER
     async emit(ctx, _content, _resources) {
+      resetForBuild(ctx.buildId);
       const outputDir = ctx.argv.output;
 
       for (const folder of folders) {
@@ -75,7 +84,7 @@ export const RemoveUnlinkedNotes: (
 
             const assetSlug = path.posix.join(folder, file.replace(/\\/g, "/"));
 
-            if (!linkedSlugs.has(assetSlug)) {
+            if (!linkedSlugs.has(normalizeSlug(assetSlug))) {
               await fs.rm(fullPath, { force: true });
             }
           }

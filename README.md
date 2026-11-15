@@ -26,8 +26,8 @@ export default {
 };
 ```
 
-The same plugin instance must be registered in all three phases so the collected links are
-available to the filter and emitter. The `folders` paths are relative to the vault root.
+The plugin shares its collected links across its transformer, filter, and emitter instances. The
+`folders` paths are relative to the vault root.
 
 ## Development
 

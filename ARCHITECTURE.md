@@ -3,7 +3,7 @@
 The plugin is implemented in [`src/index.ts`](./src/index.ts) and participates in all three
 relevant Quartz phases:
 
-1. **Transformer** collects outgoing links from each processed file.
+1. **Transformer** collects outgoing links from each processed file in build-scoped shared state.
 2. **Filter** excludes Markdown files in configured folders when no collected link targets them.
 3. **Emitter** removes unlinked non-HTML assets from the corresponding output folders.
 

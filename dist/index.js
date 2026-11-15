@@ -3,37 +3,44 @@ import fs from 'fs/promises';
 import path from 'path';
 
 createRequire(import.meta.url);
+var activeBuildId;
+var linkedSlugs = /* @__PURE__ */ new Set();
+var resetForBuild = (buildId) => {
+  if (activeBuildId === buildId) return;
+  activeBuildId = buildId;
+  linkedSlugs.clear();
+};
+var normalizeSlug = (slug) => {
+  const [withoutFragment] = decodeURIComponent(slug).replace(/^\/+/, "").replace(/^\.\//, "").split("#", 1);
+  return withoutFragment ?? "";
+};
 var RemoveUnlinkedNotes = (opts) => {
   const folders = opts?.folders ?? [];
-  const linkedSlugs = /* @__PURE__ */ new Set();
   return {
     name: "RemoveUnlinkedNotes",
-    // PHASE 1: TRANSFORMER
-    // Wird aufgerufen, NACHDEM Quartz die Links aus dem Markdown extrahiert hat.
-    // Wir sammeln alle diese Links global in unserem Set.
-    htmlPlugins() {
+    htmlPlugins(ctx) {
+      resetForBuild(ctx.buildId);
       return [
         () => {
           return (_tree, file) => {
             const links = file.data?.links ?? [];
             for (const link of links) {
-              linkedSlugs.add(link);
+              linkedSlugs.add(normalizeSlug(link));
             }
           };
         }
       ];
     },
-    // PHASE 2: FILTER
-    // Wendet sich NUR auf Markdown-Dateien (.md) an.
-    shouldPublish(_ctx, [_tree, file]) {
+    shouldPublish(ctx, [_tree, file]) {
+      resetForBuild(ctx.buildId);
       const slug = file.data?.slug;
       if (!slug) return true;
       const isInFolder = folders.some((folder) => slug.startsWith(folder + "/"));
       if (!isInFolder) return true;
-      return linkedSlugs.has(slug);
+      return linkedSlugs.has(normalizeSlug(slug));
     },
-    // PHASE 3: EMITTER
     async emit(ctx, _content, _resources) {
+      resetForBuild(ctx.buildId);
       const outputDir = ctx.argv.output;
       for (const folder of folders) {
         const folderPath = path.join(outputDir, folder);
@@ -46,7 +53,7 @@ var RemoveUnlinkedNotes = (opts) => {
             const ext = path.extname(file);
             if (ext === ".html" || ext === "") continue;
             const assetSlug = path.posix.join(folder, file.replace(/\\/g, "/"));
-            if (!linkedSlugs.has(assetSlug)) {
+            if (!linkedSlugs.has(normalizeSlug(assetSlug))) {
               await fs.rm(fullPath, { force: true });
             }
           }
