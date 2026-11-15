@@ -68,11 +68,7 @@
   },
   "quartz": {
     "name": "RemoveUnlinkedNotes",
-    "category": [
-      "transformer",
-      "filter",
-      "emitter"
-    ],
+    "category": "filter",
     "defaultOptions": {
       "folders": [
         "src"
@@ -80,7 +76,7 @@
     },
     "displayName": "Remove Unlinked Notes",
     "version": "1.0.0",
-    "quartzVersion": ">=5.0.0",
+    "quartzVersion": ">=5.1.0",
     "dependencies": [],
     "defaultOrder": 50,
     "defaultEnabled": true,
